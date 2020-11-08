@@ -33,6 +33,8 @@ conda list
 
 ```powershell
 pip install -upgrade pip
+# or
+pip install --upgrade pip
 ```
 
 Installs packages and sub-dependencies
@@ -49,4 +51,13 @@ run test python script to verify tensorflow and matplotlib have been installed p
 
 ```powershell
 python .\test_tensorflow.py
+```
+
+Testing if GPU acceleration is working
+```
+import tensorflow as tf
+from tensorflow.python.client import device_lib
+
+tf.test.gpu_device_name()
+device_lib.list_local_devices()
 ```
