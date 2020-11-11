@@ -18,10 +18,14 @@ t_xor = np.array([0, 1, 1, 0], dtype=np.float32)
 input_pairs = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=np.float32)
 true_target = t_xor
 
-sigmoid_funcs = (sigmoid, sigmoid_prime)  # LR 1 and 3000 epochs
-swish_funcs = (swish, swish_prime)  # can work with slow LR of 0.1-0.03 and 3000 epochs
-relu_funcs = (std_ReLU, std_ReLU_prime)  # do not work that well
-leaky_relu_funcs = (leaky_ReLU, leaky_ReLU_prime)  # do not work that well
+# LR 1 and 3000 epochs
+sigmoid_funcs = (sigmoid, sigmoid_prime)
+# can work with slow LR of 0.1-0.03 and 3000 epochs
+swish_funcs = (swish, swish_prime)
+
+# does not work that well
+relu_funcs = (std_ReLU, std_ReLU_prime)
+leaky_relu_funcs = (leaky_ReLU, leaky_ReLU_prime)
 
 learning_rate = 1
 mlp = MLP(learning_rate, sigmoid_funcs)
