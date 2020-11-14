@@ -1,5 +1,5 @@
 
-How to setup new conda environment for this repository:
+## How to setup new conda environment for this repository:
 ```powershell
 conda create -n iannwtf python=3.7
 ```
@@ -17,7 +17,7 @@ command line starts with `(iannwtf)` then
 
 Install pip inside of virtual conda environment
 ```powershell
-conda install pip`
+conda install pip
 ```
 
 Get a list of all installed packages in our virtual environment:
@@ -31,9 +31,9 @@ conda list
 > this will use your system’s pip to install python packages into your user,
 > instead of the virtual env’s pip to install packages into your virtual env
 
+seems to be not working ~~`pip install -upgrade pip`~~ therefore upgrade pip with:
+
 ```powershell
-pip install -upgrade pip
-# or
 pip install --upgrade pip
 ```
 
@@ -60,4 +60,39 @@ from tensorflow.python.client import device_lib
 
 tf.test.gpu_device_name()
 device_lib.list_local_devices()
+```
+
+## How to install conda for Linux Subsystem
+- Go to https://repo.anaconda.com/archive/
+- download shell script 
+
+```shell
+wget https://repo.anaconda.com/archive/Anaconda3-20XX.XXXXXXXX-Linux-x86_64.sh
+```
+
+- check the md5 checksum and run the downloaded file
+
+```shell
+md5sum Anaconda3-2019.03-Linux-x86_64.sh
+bash Anaconda3-2019.03-Linux-x86_64.sh
+```
+
+remove shell script after installation
+ 
+```shell
+rm Anaconda3-2019.03-Linux-x86_64.sh
+```
+
+Now you should be able to start up your Anaconda environment:
+
+```shell
+source ~anaconda3/bin/activate
+```
+
+“~anaconda3/bin/activate” is default place that Anaconda will install itself but if you chose elsewhere simply point to that directory.
+
+Once activated, initiate a full update:
+
+```shell
+conda update --all
 ```
