@@ -87,7 +87,7 @@ def onehotify(tensor):
 train_raw_all = tfds.load('genomics_ood', split='train')
 test_raw_all = tfds.load('genomics_ood', split='test',)
 
-train_batch_size = 1000 # 100_000
+train_batch_size = 700 # 100_000
 test_batch_size = 20 # 1000
 
 train_raw_all = train_raw_all.prefetch(train_batch_size)
