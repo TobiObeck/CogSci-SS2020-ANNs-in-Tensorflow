@@ -66,10 +66,10 @@ def extract_shuffled_batch(tf_data_dataset, batch_size):
     return temp.shuffle(buffer_size=batch_size)
 
 
-def onehotify(tensor):
+def onehotify(tensor):    
     vocab = {'A': '1', 'C': '2', 'G': '3', 'T': '0'}
     for key in vocab.keys():
-        tensor = tf.strings.regex.replace(tensor, key, vocab[key])
+        tensor = tf.strings.regex_replace(tensor, key, vocab[key])
     split = tf.strings.bytes_split(tensor)
     labels = tf.cast(tf.strings.to_number(split), tf.uint8)
     onehot = tf.one_hot(labels, 4)
@@ -79,22 +79,60 @@ def onehotify(tensor):
 # main instructions
 ######################
 
-
-# tf.data.Dataset https://www.tensorflow.org/api_docs/python/tf/data/Dataset
-train_raw = tfds.load('genomics_ood', split='train', as_supervised=True) # WHAT DOES as_supervised???
-test_raw = tfds.load('genomics_ood', split='test',)
-
 # alternative way of loading as one liner
 # train_raw, test_raw = tfds.load('genomics_ood', split=['train', 'test'])
-print(train_raw)
-# print_sample_for_first_n_records(train_raw, record_size=2)
-print_sample_for_first_n_records(test_raw, record_size=2)
 
-# train_dataset_targets.map(lambda t : tf.one_hot(t, 10))
-train_hotified = onehotify(train_raw['seq'])
+# tf.data.Dataset https://www.tensorflow.org/api_docs/python/tf/data/Dataset
+train_tuple = tfds.load('genomics_ood', split='train', as_supervised=True)
+"""
+train_raw_all = tfds.load('genomics_ood', split='train')
+test_raw_all = tfds.load('genomics_ood', split='test',)
+
+print(train_raw_all)
+print_sample_for_first_n_records(train_raw_all, record_size=2)
+print_sample_for_first_n_records(test_raw_all, record_size=2)
+"""
+
+"""
+generator = (x for x in train_tuple)
+
+for i, raw_tuple in enumerate(generator): # next(generator_input)
+    input_i, target_i = raw_tuple
+    # print(input_i, "\n")
+    # print(target_i, "\n\n")
+    if(i == 3):
+        break
+"""
+
+# train_slice = tf.data.Dataset.from_tensor_slices(train_tuple)
+# print(train_slice)
+tensors_tuple = tf.data.Dataset.from_tensors(train_tuple)
+print("SLICE")
+print(tensors_tuple, "\n")
+
+print("shape:", tensors_tuple)
+
+# mapped_stuff = tensors_tuple(0).map(lambda t : onehotify(t))
+# print(mapped_stuff)
+
+for i, tensor in enumerate(train_raw_all):
+    # print(tensor) # print(tensor[['seq']])
+    # print(tensor['seq'], "\n")
+    # print(tensor['label'], "\n\n")
+    if(i == 5):
+        break
+
+
+"""
+# train_tensor = tf.data.Dataset.from_tensors(train_raw_all)
+train_hotified = onehotify(train_tensor)
 #print_sample_for_first_n_records(train_hotified, record_size=2)
 
-train_batch = extract_shuffled_batch(train_raw, batch_size=4)  # 100_000)
-test_batch = extract_shuffled_batch(train_raw, batch_size=10)  # 1000)
+train_batch = extract_shuffled_batch(train_raw_all, batch_size=4)  # 100_000)
+test_batch = extract_shuffled_batch(train_raw_all, batch_size=10)  # 1000)
 
 print_sample_for_first_n_records(train_batch, record_size=2)
+
+"""
+
+# bytes_string.decode('UTF-8')
