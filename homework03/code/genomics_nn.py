@@ -43,7 +43,6 @@ import matplotlib.pyplot as plt
 # function definitions
 ######################
 
-
 def print_sample_for_first_n_records(tf_data_dataset, record_size):
     """
     peek at contents of the first n data records
@@ -66,7 +65,7 @@ def extract_shuffled_batch(tf_data_dataset, batch_size):
     return temp.shuffle(buffer_size=batch_size)
 
 
-def onehotify(tensor):    
+def onehotify(tensor):
     vocab = {'A': '1', 'C': '2', 'G': '3', 'T': '0'}
     for key in vocab.keys():
         tensor = tf.strings.regex_replace(tensor, key, vocab[key])
@@ -83,14 +82,25 @@ def onehotify(tensor):
 # train_raw, test_raw = tfds.load('genomics_ood', split=['train', 'test'])
 
 # tf.data.Dataset https://www.tensorflow.org/api_docs/python/tf/data/Dataset
-train_tuple = tfds.load('genomics_ood', split='train', as_supervised=True)
-"""
-train_raw_all = tfds.load('genomics_ood', split='train')
-test_raw_all = tfds.load('genomics_ood', split='test',)
+# train_tuple = tfds.load('genomics_ood', split='train', as_supervised=True)
+# train_batch_size = 20 # 100_000
+# test_batch_size = 20 # 1000
+# train_tuple = train_tuple.prefetch(train_batch_size)
 
-print(train_raw_all)
-print_sample_for_first_n_records(train_raw_all, record_size=2)
-print_sample_for_first_n_records(test_raw_all, record_size=2)
+"""
+iterator = train_tuple.__iter__()
+next_element = iterator.get_next()
+inputs = next_element[0]
+labels = next_element[1]
+print("inputs", inputs)
+print("labels", labels)
+
+for(inputs, targets) in train_tuple:
+    print(inputs)
+    temp = onehotify(inputs)
+    print("temp!!!", temp)
+    print(targets)
+    break;
 """
 
 """
@@ -104,25 +114,69 @@ for i, raw_tuple in enumerate(generator): # next(generator_input)
         break
 """
 
-# train_slice = tf.data.Dataset.from_tensor_slices(train_tuple)
+"""
+def map_tuple(tensors_tuple):
+    input_data = tensors_tuple[0]
+    target_data = tensors_tuple[1]
+    return (onehotify(input_data), target_data)
+
+train_numpy = tfds.as_numpy(train_tuple) # iterable
+print(train_numpy)
+
+temp = list(map(lambda t: map_tuple(t), train_numpy))
+print(temp)
+"""
+
+"""
 # print(train_slice)
 tensors_tuple = tf.data.Dataset.from_tensors(train_tuple)
-print("SLICE")
-print(tensors_tuple, "\n")
 
-print("shape:", tensors_tuple)
+mapped_stuff = tensors_tuple.map(lambda t : map_tuple(t))
+print(mapped_stuff)
+"""
 
-# mapped_stuff = tensors_tuple(0).map(lambda t : onehotify(t))
-# print(mapped_stuff)
 
-for i, tensor in enumerate(train_raw_all):
-    # print(tensor) # print(tensor[['seq']])
-    # print(tensor['seq'], "\n")
-    # print(tensor['label'], "\n\n")
-    if(i == 5):
+
+### ALTERNATIVE APPROACH
+### LOAD SEPARATELY AS KIND OF DICTIONARY, NOT TUPLE
+
+train_raw_all = tfds.load('genomics_ood', split='train')
+test_raw_all = tfds.load('genomics_ood', split='test',)
+train_batch_size = 20 # 100_000
+test_batch_size = 20 # 1000
+train_raw_all = train_raw_all.prefetch(train_batch_size)
+test_raw_all = test_raw_all.prefetch(train_batch_size)
+
+
+print(train_raw_all)
+print_sample_for_first_n_records(train_raw_all, record_size=2)
+print_sample_for_first_n_records(test_raw_all, record_size=2)
+
+mapped_stuff = train_raw_all.map(lambda t : onehotify(t['seq']))
+print(mapped_stuff)
+
+generator = (x for x in mapped_stuff)
+
+for i, some_stuff in enumerate(generator): # next(generator_input)
+    #input_i, target_i = some_stuff
+    print(i, some_stuff)
+    # print(input_i, "\n")
+    # print(target_i, "\n\n")
+    if(i == 3):
         break
 
 
+#for i, tensor in enumerate(train_raw_all):
+    # print(tensor) # print(tensor[['seq']])
+    # print(tensor['seq'], "\n")
+    # print(tensor['label'], "\n\n")
+    #if(i == 5):
+        #break
+
+
+
+
+### below not working
 """
 # train_tensor = tf.data.Dataset.from_tensors(train_raw_all)
 train_hotified = onehotify(train_tensor)
@@ -132,7 +186,9 @@ train_batch = extract_shuffled_batch(train_raw_all, batch_size=4)  # 100_000)
 test_batch = extract_shuffled_batch(train_raw_all, batch_size=10)  # 1000)
 
 print_sample_for_first_n_records(train_batch, record_size=2)
-
 """
-
+# maybe useful??
 # bytes_string.decode('UTF-8')
+
+# didn't work at all
+# # train_slice = tf.data.Dataset.from_tensor_slices(train_tuple)
