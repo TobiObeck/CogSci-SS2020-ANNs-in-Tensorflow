@@ -43,7 +43,6 @@ import matplotlib.pyplot as plt
 # function definitions
 ######################
 
-
 def print_sample_for_first_n_records(tf_data_dataset, record_size):
     """
     peek at contents of the first n data records
@@ -69,7 +68,7 @@ def extract_shuffled_batch(tf_data_dataset, batch_size):
 def onehotify(tensor):
     vocab = {'A': '1', 'C': '2', 'G': '3', 'T': '0'}
     for key in vocab.keys():
-        tensor = tf.strings.regex.replace(tensor, key, vocab[key])
+        tensor = tf.strings.regex_replace(tensor, key, vocab[key])
     split = tf.strings.bytes_split(tensor)
     labels = tf.cast(tf.strings.to_number(split), tf.uint8)
     onehot = tf.one_hot(labels, 4)
@@ -79,22 +78,164 @@ def onehotify(tensor):
 # main instructions
 ######################
 
-
 # tf.data.Dataset https://www.tensorflow.org/api_docs/python/tf/data/Dataset
-train_raw = tfds.load('genomics_ood', split='train', as_supervised=True) # WHAT DOES as_supervised???
-test_raw = tfds.load('genomics_ood', split='test',)
+# input pipelines: https://www.tensorflow.org/guide/data
+# https://www.tensorflow.org/api_docs/python/tf/data/Dataset#map
 
-# alternative way of loading as one liner
-# train_raw, test_raw = tfds.load('genomics_ood', split=['train', 'test'])
-print(train_raw)
-# print_sample_for_first_n_records(train_raw, record_size=2)
-print_sample_for_first_n_records(test_raw, record_size=2)
+### LOADING SEPARATELY AS KIND OF DICTIONARY, NOT TUPLE
 
-# train_dataset_targets.map(lambda t : tf.one_hot(t, 10))
-train_hotified = onehotify(train_raw['seq'])
-#print_sample_for_first_n_records(train_hotified, record_size=2)
+train_raw_all = tfds.load('genomics_ood', split='train')
+test_raw_all = tfds.load('genomics_ood', split='test',)
 
-train_batch = extract_shuffled_batch(train_raw, batch_size=4)  # 100_000)
-test_batch = extract_shuffled_batch(train_raw, batch_size=10)  # 1000)
+train_batch_size = 700 # 100_000
+test_batch_size = 20 # 1000
 
-print_sample_for_first_n_records(train_batch, record_size=2)
+train_raw_all = train_raw_all.prefetch(train_batch_size)
+test_raw_all = test_raw_all.prefetch(test_batch_size)
+
+# print(train_raw_all)
+# print_sample_for_first_n_records(train_raw_all, record_size=2)
+# print_sample_for_first_n_records(test_raw_all, record_size=2)
+
+
+train_encoded_inputs = train_raw_all.map(lambda t : onehotify(t['seq']))
+train_encoded_labels = train_raw_all.map(lambda t : tf.one_hot(t['label'], 10))
+print(train_encoded_inputs, train_encoded_labels)
+
+test_encoded_inputs = test_raw_all.map(lambda t : onehotify(t['seq']))
+test_encoded_labels = test_raw_all.map(lambda t : tf.one_hot(t['label'], 10))
+print(test_encoded_inputs, test_encoded_labels)
+
+# input_gen = (x for x in train_encoded_inputs)
+# label_gen = (x for x in train_encoded_labels)
+# for i, some_stuff in enumerate(label_gen): # next(generator_input)
+#     print(i, some_stuff)
+#     if(i == 3): break
+
+train_prepared = tf.data.Dataset.zip((train_encoded_inputs, train_encoded_labels))
+train_batched = train_prepared.batch(train_batch_size)
+train_shuffled_batch = train_batched.shuffle(buffer_size=train_batch_size)
+
+test_prepared = tf.data.Dataset.zip((test_encoded_inputs, test_encoded_labels))
+test_batched = test_prepared.batch(test_batch_size)
+test_shuffled_batch = test_batched.shuffle(buffer_size=test_batch_size)
+
+
+from tensorflow.keras import Model
+from tensorflow.keras.layers import Layer
+
+class Model(Model):
+
+    def __init__(self):
+        super(Model, self).__init__()
+        # Define the three layers.
+        self.hidden_layer_1 = tf.keras.layers.Dense(units=256,
+                                               activation=tf.keras.activations.sigmoid
+                                               )
+        self.hidden_layer_2 = tf.keras.layers.Dense(units=256,
+                                               activation=tf.keras.activations.sigmoid
+                                               )
+        self.output_layer = tf.keras.layers.Dense(units=10,
+                                               activation=tf.keras.activations.softmax
+                                               )
+    def call(self, x):
+        # Define the forward step.
+        x = self.hidden_layer_1(x)
+        x = self.hidden_layer_2(x)
+        x = self.output_layer(x)
+        return x
+
+def train_step(model, input, target, loss_function, optimizer):
+  # loss_object and optimizer_object are instances of respective tensorflow classes
+  with tf.GradientTape() as tape:
+    prediction = model(input)
+    loss = loss_function(target, prediction)
+    gradients = tape.gradient(loss, model.trainable_variables)
+  optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+  return loss
+
+def test(model, test_data, loss_function):
+  # test over complete test data
+
+  test_accuracy_aggregator = []
+  test_loss_aggregator = []
+
+  for (input, target) in test_data:
+    prediction = model(input)
+    sample_test_loss = loss_function(target, prediction)
+    sample_test_accuracy =  np.argmax(target, axis=1) == np.argmax(prediction, axis=1)
+    sample_test_accuracy = np.mean(sample_test_accuracy)
+    test_loss_aggregator.append(sample_test_loss.numpy())
+    test_accuracy_aggregator.append(np.mean(sample_test_accuracy))
+
+  test_loss = np.mean(test_loss_aggregator)
+  test_accuracy = np.mean(test_accuracy_aggregator)
+
+  return test_loss, test_accuracy
+
+
+tf.keras.backend.clear_session()
+
+### Hyperparameters
+num_epochs = 10
+learning_rate = 0.1
+running_average_factor = 0.95
+
+# Initialize the model.
+model = Model()
+# Initialize the loss: categorical cross entropy. Check out 'tf.keras.losses'.
+cross_entropy_loss = tf.keras.losses.CategoricalCrossentropy()
+# Initialize the optimizer: Adam with default parameters. Check out 'tf.keras.optimizers'
+optimizer = tf.keras.optimizers.SGD(learning_rate)
+
+# Initialize lists for later visualization.
+train_losses = []
+
+test_losses = []
+test_accuracies = []
+
+#testing once before we begin
+test_loss, test_accuracy = test(model, test_shuffled_batch, cross_entropy_loss)
+test_losses.append(test_loss)
+test_accuracies.append(test_accuracy)
+
+#check how model performs on train data once before we begin
+train_loss, _ = test(model, train_shuffled_batch, cross_entropy_loss)
+train_losses.append(train_loss)
+
+# We train for num_epochs epochs.
+for epoch in range(num_epochs):
+    print('Epoch: __ ' + str(epoch))
+
+    train_shuffled_batch = train_shuffled_batch.shuffle(buffer_size=128)
+    test_shuffled_batch = test_shuffled_batch.shuffle(buffer_size=128)
+
+    #training (and checking in with training)
+    running_average = 0
+    for (input,target) in train_shuffled_batch:
+        train_loss = train_step(model, input, target, cross_entropy_loss, optimizer)
+        running_average = running_average_factor * running_average  + (1 - running_average_factor) * train_loss
+    train_losses.append(running_average)
+
+    #testing
+    test_loss, test_accuracy = test(model, test_shuffled_batch, cross_entropy_loss)
+    test_losses.append(test_loss)
+    test_accuracies.append(test_accuracy)
+
+
+# Visualize accuracy and loss for training and test data.
+# One plot training and test loss.
+# One plot training and test accuracy.
+plt.figure()
+line1, = plt.plot(train_losses)
+line2, = plt.plot(test_losses)
+plt.xlabel("Training steps")
+plt.ylabel("Loss")
+plt.legend((line1,line2),("training","test"))
+plt.show()
+
+plt.figure()
+line1, = plt.plot(test_accuracies)
+plt.xlabel("Training steps")
+plt.ylabel("Accuracy")
+plt.show()
